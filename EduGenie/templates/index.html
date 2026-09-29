@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduGenie - Google Gemini Powered Learning Assistant</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="top-nav">
+        <div class="brand">
+            <span class="logo-icon">✨</span>
+            <span class="brand-name">EduGenie</span>
+        </div>
+        <div class="nav-actions">
+            <a href="/download" class="key-pill download-pill" title="Download Entire Project as ZIP">
+                <span>📦 Download ZIP</span>
+            </a>
+            <button id="apiKeyBtn" class="key-pill" title="Configure Gemini API Key">
+                <span class="status-dot {% if has_api_key %}active{% endif %}"></span>
+                <span id="keyStatusText">{% if has_api_key %}API Key Configured{% else %}Set Gemini API Key{% endif %}</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- API Key Modal -->
+    <div id="keyModal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3>🔑 Configure Gemini API Key</h3>
+            <p>Enter your Google Gemini API key to unlock real-time AI responses.</p>
+            <input type="password" id="modalKeyInput" placeholder="AIzaSy..." class="modal-input">
+            <div class="modal-buttons">
+                <button type="button" id="saveKeyBtn" class="btn primary-btn">Save Key</button>
+                <button type="button" id="closeModalBtn" class="btn secondary-btn">Cancel</button>
+            </div>
+            <div id="modalStatus" class="status-msg"></div>
+            <p class="helper-text">Get a free Gemini API key from <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a>.</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="main-title">Welcome to EduGenie 💡</h1>
+            <p class="subtitle">Your personal AI tutor for learning support!</p>
+        </header>
+
+        <main class="content-wrapper">
+            <!-- 1. Q&A Form -->
+            <section class="card">
+                <form id="qaForm" class="module-form">
+                    <label for="question"><strong>Ask EduGenie a Question:</strong></label>
+                    <div class="input-row">
+                        <input type="text" id="question" placeholder="Why is the sky blue?" required>
+                        <button type="submit" class="btn action-btn">Get Answer</button>
+                    </div>
+                </form>
+                <div id="qaResult" class="output hidden"></div>
+            </section>
+
+            <!-- 2. Explanation Form -->
+            <section class="card">
+                <form id="explainForm" class="module-form">
+                    <label for="topic"><strong>Need an Explanation?</strong></label>
+                    <div class="input-row">
+                        <input type="text" id="topic" placeholder="Photosynthesis" required>
+                        <button type="submit" class="btn action-btn">Explain</button>
+                    </div>
+                </form>
+                <div id="explanationResult" class="output hidden"></div>
+            </section>
+
+            <!-- 3. Summary Form -->
+            <section class="card">
+                <form id="summaryForm" class="module-form">
+                    <label for="summaryText"><strong>Summarize a Paragraph:</strong></label>
+                    <div class="input-row">
+                        <input type="text" id="summaryText" placeholder="Paste long content to summarize" required>
+                        <button type="submit" class="btn action-btn">Summarize</button>
+                    </div>
+                </form>
+                <div id="summaryResult" class="output hidden"></div>
+            </section>
+
+            <!-- 4. Quiz Form -->
+            <section class="card">
+                <form id="quizForm" class="module-form">
+                    <label for="quizText"><strong>Generate a Quiz:</strong></label>
+                    <div class="input-row">
+                        <input type="text" id="quizText" placeholder="Solar System" required>
+                        <button type="submit" class="btn action-btn">Generate Quiz</button>
+                    </div>
+                </form>
+                <div id="quizResult" class="output hidden"></div>
+            </section>
+
+            <!-- 5. Learning Recommendations Form -->
+            <section class="card">
+                <form id="learnForm" class="module-form">
+                    <label for="learnTopic"><strong>Get Learning Recommendations:</strong></label>
+                    <div class="input-row">
+                        <input type="text" id="learnTopic" placeholder="e.g. Linear Regression" required>
+                        <button type="submit" class="btn action-btn">Get Recommendations</button>
+                    </div>
+                </form>
+                <div id="learnResult" class="output hidden"></div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>EduGenie &copy; SmartBridge &bull; Google Gemini Powered Learning Assistant</p>
+        </footer>
+    </div>
+
+    <!-- Frontend Interactive Logic -->
+    <script>
+        // API Key Modal Handler
+        const apiKeyBtn = document.getElementById('apiKeyBtn');
+        const keyModal = document.getElementById('keyModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const saveKeyBtn = document.getElementById('saveKeyBtn');
+        const modalKeyInput = document.getElementById('modalKeyInput');
+        const modalStatus = document.getElementById('modalStatus');
+
+        apiKeyBtn.addEventListener('click', () => {
+            keyModal.classList.remove('hidden');
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            keyModal.classList.add('hidden');
+            modalStatus.textContent = '';
+        });
+
+        saveKeyBtn.addEventListener('click', async () => {
+            const key = modalKeyInput.value.trim();
+            if (!key) {
+                modalStatus.textContent = 'Please enter a valid key.';
+                modalStatus.className = 'status-msg text-error';
+                return;
+            }
+            try {
+                const res = await fetch('/api/set-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ apiKey: key })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    modalStatus.textContent = 'Key saved successfully!';
+                    modalStatus.className = 'status-msg text-success';
+                    document.querySelector('.status-dot').classList.add('active');
+                    document.getElementById('keyStatusText').textContent = 'API Key Configured';
+                    setTimeout(() => {
+                        keyModal.classList.add('hidden');
+                        modalStatus.textContent = '';
+                        modalKeyInput.value = '';
+                    }, 1200);
+                } else {
+                    modalStatus.textContent = data.error || 'Failed to update key';
+                    modalStatus.className = 'status-msg text-error';
+                }
+            } catch (err) {
+                modalStatus.textContent = 'Error connecting to server.';
+                modalStatus.className = 'status-msg text-error';
+            }
+        });
+
+        // Helper to show loading in result box
+        function showLoading(container) {
+            container.classList.remove('hidden');
+            container.innerHTML = '<div class="loader-spinner"></div> <span class="loading-text">Thinking with EduGenie...</span>';
+        }
+
+        // Helper to format basic markdown to HTML
+        function renderMarkdown(text) {
+            if (!text) return '';
+            let html = text
+                // Escape HTML tags
+                .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                // Headers
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                // Bold and Italics
+                .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+                // Horizontal Rule
+                .replace(/^---$/gim, '<hr class="styled-hr">')
+                // Bullet points
+                .replace(/^\s*\*\s+(.*$)/gim, '<li>$1</li>')
+                .replace(/^\s*-\s+(.*$)/gim, '<li>$1</li>');
+
+            // Wrap contiguous <li> with <ul>
+            html = html.replace(/(<li>[\s\S]*?<\/li>)/gm, '<ul>$1</ul>');
+            // Clean duplicate nested <ul>
+            html = html.replace(/<\/ul>\s*<ul>/g, '');
+            // Paragraph breaks
+            html = html.split('\n\n').map(p => {
+                if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<hr')) return p;
+                return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+            }).join('');
+
+            return html;
+        }
+
+        // 1. Q&A Form Handler
+        document.getElementById('qaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const question = document.getElementById('question').value.trim();
+            const resultDiv = document.getElementById('qaResult');
+            showLoading(resultDiv);
+
+            try {
+                const response = await fetch(`/qa?question=${encodeURIComponent(question)}`);
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <div class="result-header">Answer:</div>
+                    <div class="result-body">${renderMarkdown(data.answer || 'No answer returned.')}</div>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `<div class="error-msg">⚠️ Failed to fetch answer: ${err.message}</div>`;
+            }
+        });
+
+        // 2. Explanation Form Handler
+        document.getElementById('explainForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const topic = document.getElementById('topic').value.trim();
+            const resultDiv = document.getElementById('explanationResult');
+            showLoading(resultDiv);
+
+            try {
+                const response = await fetch('/explain', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic })
+                });
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <div class="result-header">Explanation:</div>
+                    <div class="result-body">${renderMarkdown(data.explanation || data.error)}</div>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `<div class="error-msg">⚠️ Failed to generate explanation: ${err.message}</div>`;
+            }
+        });
+
+        // 3. Summary Form Handler
+        document.getElementById('summaryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = document.getElementById('summaryText').value.trim();
+            const resultDiv = document.getElementById('summaryResult');
+            showLoading(resultDiv);
+
+            try {
+                const response = await fetch('/summarize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <div class="result-header">Summary:</div>
+                    <div class="result-body">${renderMarkdown(data.summary || data.error)}</div>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `<div class="error-msg">⚠️ Failed to summarize text: ${err.message}</div>`;
+            }
+        });
+
+        // 4. Quiz Form Handler with Interactive Checking
+        let currentQuizData = [];
+
+        document.getElementById('quizForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = document.getElementById('quizText').value.trim();
+            const resultDiv = document.getElementById('quizResult');
+            showLoading(resultDiv);
+
+            try {
+                const response = await fetch('/quiz', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                const data = await response.json();
+                currentQuizData = data.quiz;
+
+                if (!Array.isArray(currentQuizData) || currentQuizData.length === 0) {
+                    resultDiv.innerHTML = `<div class="error-msg">⚠️ Quiz generation returned no questions.</div>`;
+                    return;
+                }
+
+                // Render questions matching PDF page 14 design
+                let html = `<div class="quiz-container"><h3 class="quiz-title">Quiz:</h3>`;
+                currentQuizData.forEach((q, qIdx) => {
+                    html += `
+                        <div class="quiz-item" id="quiz-item-${qIdx}">
+                            <div class="quiz-question"><strong>Q${qIdx + 1}: ${q.question}</strong></div>
+                            <div class="quiz-options">
+                    `;
+                    q.options.forEach((opt, optIdx) => {
+                        const optId = `q${qIdx}_opt${optIdx}`;
+                        html += `
+                            <label class="quiz-option-label" for="${optId}">
+                                <input type="radio" id="${optId}" name="quiz_q_${qIdx}" value="${encodeURIComponent(opt)}">
+                                <span>${opt}</span>
+                            </label>
+                        `;
+                    });
+                    html += `
+                            </div>
+                            <div class="quiz-btn-row">
+                                <button type="button" class="btn check-btn" onclick="checkAnswer(${qIdx})">Check Answer</button>
+                            </div>
+                            <div id="feedback-${qIdx}" class="quiz-feedback hidden"></div>
+                        </div>
+                        ${qIdx < currentQuizData.length - 1 ? '<hr class="quiz-divider">' : ''}
+                    `;
+                });
+                html += `</div>`;
+                resultDiv.innerHTML = html;
+            } catch (err) {
+                resultDiv.innerHTML = `<div class="error-msg">⚠️ Failed to generate quiz: ${err.message}</div>`;
+            }
+        });
+
+        // Global function to validate individual question answers
+        window.checkAnswer = function(qIdx) {
+            const selectedRadio = document.querySelector(`input[name="quiz_q_${qIdx}"]:checked`);
+            const feedbackDiv = document.getElementById(`feedback-${qIdx}`);
+            feedbackDiv.classList.remove('hidden');
+
+            if (!selectedRadio) {
+                feedbackDiv.className = 'quiz-feedback warning';
+                feedbackDiv.textContent = 'Please select an option before checking.';
+                return;
+            }
+
+            const selectedAnswer = decodeURIComponent(selectedRadio.value).trim();
+            const correctAnswer = (currentQuizData[qIdx].answer || '').trim();
+
+            if (selectedAnswer.toLowerCase() === correctAnswer.toLowerCase()) {
+                feedbackDiv.className = 'quiz-feedback correct';
+                feedbackDiv.innerHTML = '✅ Correct!';
+            } else {
+                feedbackDiv.className = 'quiz-feedback incorrect';
+                feedbackDiv.innerHTML = `❌ Incorrect. Correct answer: <strong>${correctAnswer}</strong>`;
+            }
+        };
+
+        // 5. Learning Recommendations Form Handler
+        document.getElementById('learnForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const topic = document.getElementById('learnTopic').value.trim();
+            const resultDiv = document.getElementById('learnResult');
+            showLoading(resultDiv);
+
+            try {
+                const response = await fetch(`/learn/recommendations?topic=${encodeURIComponent(topic)}`);
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <div class="result-header">Learning Recommendations for "${data.topic}":</div>
+                    <div class="result-body markdown-view">${renderMarkdown(data.recommendation)}</div>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `<div class="error-msg">⚠️ Failed to get recommendations: ${err.message}</div>`;
+            }
+        });
+    </script>
+</body>
+</html>
